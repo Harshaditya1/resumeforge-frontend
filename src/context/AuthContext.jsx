@@ -1,4 +1,9 @@
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
+import {
+  getToken,
+  saveToken,
+  removeToken,
+} from "../utils/authStorage";
 
 const AuthContext = createContext(null);
 
@@ -8,15 +13,40 @@ export function AuthProvider({ children }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  useEffect(() => {
+    const savedToken = getToken();
+
+    if (savedToken) {
+      setToken(savedToken);
+      setIsAuthenticated(true);
+    }
+
+    setLoading(false);
+  }, []);
+
+  const login = (jwtToken, userData = null) => {
+    saveToken(jwtToken);
+
+    setToken(jwtToken);
+    setUser(userData);
+    setIsAuthenticated(true);
+  };
+
+  const logout = () => {
+    removeToken();
+
+    setToken(null);
+    setUser(null);
+    setIsAuthenticated(false);
+  };
+
   const value = {
     user,
     token,
     isAuthenticated,
     loading,
-    setUser,
-    setToken,
-    setIsAuthenticated,
-    setLoading,
+    login,
+    logout,
   };
 
   return (
