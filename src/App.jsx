@@ -1,11 +1,5 @@
-function App() {
-  return (
-    <div className="min-h-screen bg-black flex items-center justify-center">
-      <h1 className="text-5xl font-bold text-cyan-400">
-        ResumeForge AI
-      </h1>
-    </div>
-  );
-}
+import AppRouter from "./routes/AppRouter";
 
-export default App;
+export default function App() {
+  return <AppRouter />;
+}
