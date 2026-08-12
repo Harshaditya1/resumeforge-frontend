@@ -32,9 +32,50 @@ export const uploadResume = async (file, onUploadProgress) => {
 };
 
 /**
- * Get all resumes of current user
+ * Get all resumes
  */
 export const getResumes = async () => {
   const response = await apiClient.get("/api/resumes");
+  return response.data;
+};
+
+/**
+ * Get latest resume
+ */
+export const getLatestResume = async () => {
+  const response = await apiClient.get("/api/resumes/latest");
+  return response.data;
+};
+
+/**
+ * Get resume by id
+ */
+export const getResumeById = async (resumeId) => {
+  const response = await apiClient.get(`/api/resumes/${resumeId}`);
+  return response.data;
+};
+
+/**
+ * Delete resume
+ */
+export const deleteResume = async (resumeId) => {
+  const response = await apiClient.delete(
+    `/api/resumes/${resumeId}`
+  );
+
+  return response.data;
+};
+
+/**
+ * Download resume
+ */
+export const downloadResume = async (resumeId) => {
+  const response = await apiClient.get(
+    `/api/resumes/${resumeId}/download`,
+    {
+      responseType: "blob",
+    }
+  );
+
   return response.data;
 };
