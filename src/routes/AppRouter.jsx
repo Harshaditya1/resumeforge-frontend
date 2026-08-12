@@ -8,6 +8,7 @@ import ResumeUploadPage from "../pages/dashboard/ResumeUploadPage";
 
 import DashboardLayout from "../layout/DashboardLayout";
 import ProtectedRoute from "./ProtectedRoute";
+import JobDescriptionPage from "../pages/dashboard/JobDescriptionPage";
 
 export default function AppRouter() {
   return (
@@ -26,6 +27,10 @@ export default function AppRouter() {
               path="/dashboard/resume-upload"
               element={<ResumeUploadPage />}
             />
+            <Route
+  path="/dashboard/job-description"
+  element={<JobDescriptionPage />}
+/>
           </Route>
         </Route>
       </Routes>
