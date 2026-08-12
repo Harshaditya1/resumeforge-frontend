@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import {
   FiUploadCloud,
@@ -6,6 +6,11 @@ import {
   FiTrash2,
 } from "react-icons/fi";
 import toast from "react-hot-toast";
+import {
+  uploadResume as uploadResumeApi,
+  getResume,
+  deleteResume,
+} from "../../services/resumeService";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
@@ -16,8 +21,9 @@ export default function ResumeUploadPage() {
   const [dragActive, setDragActive] = useState(false);
 
   // UI state (backend integration in next step)
-  const [uploading] = useState(false);
-  const [progress] = useState(0);
+  const [uploading, setUploading] = useState(false);
+const [progress, setProgress] = useState(0);
+const [loadingResume, setLoadingResume] = useState(true);
 
   const validateFile = (file) => {
     if (!file) return false;
@@ -55,27 +61,80 @@ export default function ResumeUploadPage() {
     if (file) handleFile(file);
   };
 
-  const removeResume = () => {
+  const removeResume = async () => {
+  try {
+    await deleteResume();
+
     setResume(null);
 
     if (inputRef.current) {
       inputRef.current.value = "";
     }
 
-    toast.success("Resume removed.");
-  };
+    toast.success("Resume deleted successfully.");
+  } catch (error) {
+    toast.error(
+      error?.response?.data?.message ||
+        "Unable to delete resume."
+    );
+  }
+};
+
+  const loadResume = async () => {
+  try {
+    setLoadingResume(true);
+
+    const data = await getResume();
+
+    if (data) {
+      setResume(data);
+    } else {
+      setResume(null);
+    }
+  } catch {
+    setResume(null);
+  } finally {
+    setLoadingResume(false);
+  }
+};
+
+useEffect(() => {
+  loadResume();
+}, []);
 
   const uploadResume = async () => {
-    if (!resume) {
-      toast.error("Please select a resume first.");
-      return;
-    }
+  if (!resume) {
+    toast.error("Please select a resume first.");
+    return;
+  }
+
+  try {
+    setUploading(true);
+    setProgress(0);
+
+    const response = await uploadResumeApi(
+      resume,
+      (value) => {
+        setProgress(value);
+      }
+    );
 
     toast.success(
-      "UI is ready. Backend upload API will be connected in the next step."
+      response?.message || "Resume uploaded successfully."
     );
-  };
+    await loadResume();
 
+    setProgress(100);
+  } catch (error) {
+    const message =
+      error?.response?.data?.message ||
+      "Failed to upload resume.";
+
+    toast.error(message);
+  } finally {
+    setUploading(false);
+  }
+};
   return (
     <div className="p-6 lg:p-8">
       <motion.div
@@ -94,6 +153,11 @@ export default function ResumeUploadPage() {
         </div>
 
         <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md p-8">
+         {loadingResume && (
+    <div className="mb-6 rounded-xl border border-white/10 bg-white/5 p-4 text-center text-[#C9D6D1]">
+      Loading your uploaded resume...
+    </div>
+  )}
 
           <input
             ref={inputRef}
@@ -188,7 +252,7 @@ export default function ResumeUploadPage() {
               disabled={!resume || uploading}
               className="rounded-xl bg-[#285A48] px-8 py-3 font-semibold text-white transition hover:bg-[#356f59] disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Upload Resume
+              {uploading ? "Uploading..." : "Upload Resume"}
             </button>
           </div>
         </div>
