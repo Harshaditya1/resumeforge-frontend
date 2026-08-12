@@ -19,7 +19,7 @@ export const sidebarMenu = [
   {
     title: "Upload Resume",
     icon: FaFileUpload,
-    path: "/dashboard/resume",
+    path: "/dashboard/resume-upload",
   },
   {
     title: "Job Description",
