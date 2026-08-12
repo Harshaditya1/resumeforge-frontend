@@ -1,29 +1,32 @@
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import {
-  FiUploadCloud,
-  FiFileText,
-  FiTrash2,
-} from "react-icons/fi";
 import toast from "react-hot-toast";
+
+import ResumeDropzone from "../../components/resume/ResumeDropzone";
+import ResumeCard from "../../components/resume/ResumeCard";
+import UploadProgress from "../../components/resume/UploadProgress";
+
 import {
-  uploadResume as uploadResumeApi,
-  getResume,
+  uploadResume,
+  getLatestResume,
   deleteResume,
+  downloadResume,
 } from "../../services/resumeService";
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 export default function ResumeUploadPage() {
   const inputRef = useRef(null);
 
-  const [resume, setResume] = useState(null);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [uploadedResume, setUploadedResume] = useState(null);
+
   const [dragActive, setDragActive] = useState(false);
 
-  // UI state (backend integration in next step)
   const [uploading, setUploading] = useState(false);
-const [progress, setProgress] = useState(0);
-const [loadingResume, setLoadingResume] = useState(true);
+  const [progress, setProgress] = useState(0);
+
+  const [loadingResume, setLoadingResume] = useState(true);
 
   const validateFile = (file) => {
     if (!file) return false;
@@ -44,97 +47,130 @@ const [loadingResume, setLoadingResume] = useState(true);
   const handleFile = (file) => {
     if (!validateFile(file)) return;
 
-    setResume(file);
+    setSelectedFile(file);
+
     toast.success("Resume selected successfully.");
   };
 
-  const handleBrowse = (e) => {
-    const file = e.target.files?.[0];
-    if (file) handleFile(file);
+  const handleBrowse = (event) => {
+    const file = event.target.files?.[0];
+
+    if (file) {
+      handleFile(file);
+    }
   };
 
-  const handleDrop = (e) => {
-    e.preventDefault();
+  const handleDrop = (event) => {
+    event.preventDefault();
+
     setDragActive(false);
 
-    const file = e.dataTransfer.files?.[0];
-    if (file) handleFile(file);
+    const file = event.dataTransfer.files?.[0];
+
+    if (file) {
+      handleFile(file);
+    }
   };
 
-  const removeResume = async () => {
-  try {
-    await deleteResume();
-
-    setResume(null);
-
-    if (inputRef.current) {
-      inputRef.current.value = "";
-    }
-
-    toast.success("Resume deleted successfully.");
-  } catch (error) {
-    toast.error(
-      error?.response?.data?.message ||
-        "Unable to delete resume."
-    );
-  }
-};
-
   const loadResume = async () => {
-  try {
-    setLoadingResume(true);
+    try {
+      setLoadingResume(true);
 
-    const data = await getResume();
+      const data = await getLatestResume();
 
-    if (data) {
-      setResume(data);
-    } else {
-      setResume(null);
+      setUploadedResume(data);
+    } catch {
+      setUploadedResume(null);
+    } finally {
+      setLoadingResume(false);
     }
-  } catch {
-    setResume(null);
-  } finally {
-    setLoadingResume(false);
-  }
-};
+  };
 
-useEffect(() => {
-  loadResume();
-}, []);
+  useEffect(() => {
+    loadResume();
+  }, []);
 
-  const uploadResume = async () => {
-  if (!resume) {
-    toast.error("Please select a resume first.");
-    return;
-  }
+  const handleUploadResume = async () => {
+    if (!selectedFile) {
+      toast.error("Please select a resume first.");
+      return;
+    }
 
-  try {
-    setUploading(true);
-    setProgress(0);
+    try {
+      setUploading(true);
+      setProgress(0);
 
-    const response = await uploadResumeApi(
-      resume,
-      (value) => {
-        setProgress(value);
+      await uploadResume(
+        selectedFile,
+        (value) => setProgress(value)
+      );
+
+      toast.success("Resume uploaded successfully.");
+
+      setSelectedFile(null);
+
+      if (inputRef.current) {
+        inputRef.current.value = "";
       }
-    );
 
-    toast.success(
-      response?.message || "Resume uploaded successfully."
-    );
-    await loadResume();
+      await loadResume();
+            setProgress(100);
+    } catch (error) {
+      toast.error(
+        error?.response?.data?.message ||
+          "Failed to upload resume."
+      );
+    } finally {
+      setUploading(false);
+    }
+  };
 
-    setProgress(100);
-  } catch (error) {
-    const message =
-      error?.response?.data?.message ||
-      "Failed to upload resume.";
+  const handleDeleteResume = async () => {
+    if (!uploadedResume) return;
 
-    toast.error(message);
-  } finally {
-    setUploading(false);
-  }
-};
+    try {
+      await deleteResume(uploadedResume.id);
+
+      setUploadedResume(null);
+
+      toast.success("Resume deleted successfully.");
+    } catch (error) {
+      toast.error(
+        error?.response?.data?.message ||
+          "Unable to delete resume."
+      );
+    }
+  };
+
+  const handleDownloadResume = async () => {
+    if (!uploadedResume) return;
+
+    try {
+      const blob = await downloadResume(uploadedResume.id);
+
+      const url = window.URL.createObjectURL(blob);
+
+      const link = document.createElement("a");
+
+      link.href = url;
+      link.download = uploadedResume.originalFileName;
+
+      document.body.appendChild(link);
+
+      link.click();
+
+      link.remove();
+
+      window.URL.revokeObjectURL(url);
+    } catch {
+      toast.error("Unable to download resume.");
+    }
+  };
+
+  const handleReplaceResume = () => {
+    inputRef.current?.click();
+  };
+
   return (
     <div className="p-6 lg:p-8">
       <motion.div
@@ -153,110 +189,70 @@ useEffect(() => {
         </div>
 
         <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md p-8">
-         {loadingResume && (
-    <div className="mb-6 rounded-xl border border-white/10 bg-white/5 p-4 text-center text-[#C9D6D1]">
-      Loading your uploaded resume...
-    </div>
-  )}
 
-          <input
-            ref={inputRef}
-            type="file"
-            accept=".pdf"
-            className="hidden"
-            onChange={handleBrowse}
-          />
+          {loadingResume && (
+            <div className="mb-6 rounded-xl border border-white/10 bg-white/5 p-4 text-center text-[#C9D6D1]">
+              Loading your uploaded resume...
+            </div>
+          )}
 
-          <motion.div
-            whileHover={{ scale: 1.01 }}
-            onClick={() => inputRef.current?.click()}
+          <ResumeDropzone
+            dragActive={dragActive}
+            inputRef={inputRef}
+            onBrowse={handleBrowse}
             onDragOver={(e) => {
               e.preventDefault();
               setDragActive(true);
             }}
             onDragLeave={() => setDragActive(false)}
             onDrop={handleDrop}
-            className={`cursor-pointer rounded-2xl border-2 border-dashed transition-all p-12 text-center ${
-              dragActive
-                ? "border-[#B0E4CC] bg-[#B0E4CC]/10"
-                : "border-white/15 hover:border-[#B0E4CC]"
-            }`}
-          >
-            <FiUploadCloud className="mx-auto text-6xl text-[#B0E4CC]" />
+          />
 
-            <h2 className="mt-6 text-2xl font-semibold text-white">
-              Drag & Drop Resume
-            </h2>
+          <UploadProgress
+            uploading={uploading}
+            progress={progress}
+          />
 
-            <p className="mt-3 text-[#C9D6D1]">
-              or click anywhere to browse your PDF resume
-            </p>
-
-            <p className="mt-2 text-sm text-gray-400">
-              Supported format: PDF • Maximum size: 10 MB
-            </p>
-          </motion.div>
-
-          {resume && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="mt-8 rounded-xl border border-white/10 bg-black/20 p-5"
-            >
-              <div className="flex items-center justify-between gap-4 flex-wrap">
-                <div className="flex items-center gap-4">
-                  <FiFileText className="text-3xl text-[#B0E4CC]" />
-
-                  <div>
-                    <h3 className="text-white font-semibold break-all">
-                      {resume.name}
-                    </h3>
-
-                    <p className="text-sm text-gray-400">
-                      {(resume.size / 1024 / 1024).toFixed(2)} MB
-                    </p>
-                  </div>
-                </div>
-
-                <button
-                  onClick={removeResume}
-                  className="flex items-center gap-2 rounded-lg bg-red-500 px-4 py-2 text-white hover:bg-red-600 transition"
-                >
-                  <FiTrash2 />
-                  Remove
-                </button>
-              </div>
-            </motion.div>
+          {uploadedResume && (
+            <ResumeCard
+              resume={uploadedResume}
+              onDownload={handleDownloadResume}
+              onDelete={handleDeleteResume}
+              onReplace={handleReplaceResume}
+            />
           )}
 
-          {uploading && (
-            <div className="mt-8">
-              <div className="h-3 rounded-full bg-gray-700 overflow-hidden">
-                <div
-                  className="h-full bg-[#B0E4CC] transition-all"
-                  style={{
-                    width: `${progress}%`,
-                  }}
-                />
-              </div>
+          {!uploadedResume && selectedFile && (
+            <ResumeCard
+              resume={{
+                name: selectedFile.name,
+                size: selectedFile.size,
+              }}
+              onDownload={() => {}}
+              onDelete={() => {
+                setSelectedFile(null);
 
-              <p className="mt-2 text-sm text-[#C9D6D1]">
-                Uploading... {progress}%
-              </p>
-            </div>
+                if (inputRef.current) {
+                  inputRef.current.value = "";
+                }
+              }}
+              onReplace={handleReplaceResume}
+            />
           )}
 
           <div className="mt-8 flex justify-end">
             <button
-              onClick={uploadResume}
-              disabled={!resume || uploading}
+              onClick={handleUploadResume}
+              disabled={!selectedFile || uploading}
               className="rounded-xl bg-[#285A48] px-8 py-3 font-semibold text-white transition hover:bg-[#356f59] disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {uploading ? "Uploading..." : "Upload Resume"}
+              {uploading
+                ? "Uploading..."
+                : "Upload Resume"}
             </button>
           </div>
         </div>
       </motion.div>
     </div>
-);
+  );
 }

@@ -13,7 +13,7 @@ const actions = [
     description: "Upload your resume in PDF format.",
     icon: FaFileUpload,
     color: "#408A71",
-    path: "/dashboard/resume",
+    path: "/dashboard/resume-upload",
   },
   {
     title: "Job Description",
